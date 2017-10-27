@@ -85,7 +85,6 @@ class Unet:
 
         optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(self.loss)
 
-        # sess = tf.Session()
         sess.run(tf.global_variables_initializer())
         n_batches = inputs.shape[0] // batch_size
         for epoch in range(epochs):
@@ -93,8 +92,6 @@ class Unet:
             for idx in range(n_batches):
                 input_batch = inputs[idx * batch_size: (idx + 1) * batch_size]
                 output_batch = outputs[idx * batch_size: (idx + 1) * batch_size]
-                print(input_batch.shape, output_batch.shape)
-                print(inputs.shape, outputs.shape)
                 _, batch_loss, output_map = sess.run([optimizer, self.loss, self.output_map],
                                                      feed_dict={self.input_holder: input_batch,
                                                                 self.output_holder: output_batch})

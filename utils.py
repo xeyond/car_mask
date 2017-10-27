@@ -1,7 +1,6 @@
 import numpy as np
 from scipy import misc
-import os
-import matplotlib.pyplot as plt
+import os, sys
 
 
 def read_mask_img(filepath):
@@ -25,6 +24,8 @@ def read_car_img(filepath):
 
 
 def read_data(car_dir, mask_dir, n_images=0):
+    print('loading car data from', car_dir)
+    print('loading mask data from', mask_dir)
     car_list = os.listdir(car_dir)
     mask_list = os.listdir(mask_dir)
     car_list.sort()
@@ -37,10 +38,11 @@ def read_data(car_dir, mask_dir, n_images=0):
     for idx in range(n_images):
         car_file = car_list[idx]
         mask_file = mask_list[idx]
-        print(idx, car_file, mask_file)
+        # print(idx, car_file, mask_file)
         car_mat[idx] = read_car_img(os.path.join(car_dir, car_file))
         mask_mat[idx] = read_mask_img(os.path.join(mask_dir, mask_file))
-
+        sys.stdout.write('\r%2.1f%% completed...' % ((idx + 1.0) * 100 / n_images))
+    print('')
     perm = np.arange(n_images)
     np.random.shuffle(perm)
     return car_mat[perm], mask_mat[perm]
