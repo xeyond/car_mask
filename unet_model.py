@@ -3,8 +3,8 @@ import sys
 
 
 class Unet:
-    def __init__(self):
-        pass
+    def __init__(self, input_shape=(1280, 1920)):
+        self.height, self.width = input_shape
 
     def get_conv2d(self, input_tensor, kernel_shape, name, activation='relu'):
         kernel_name = "%s_kernel" % name
@@ -22,8 +22,8 @@ class Unet:
         return conv
 
     def build_net(self):
-        self.input_holder = tf.placeholder(tf.float32, shape=[None, 1280, 1920, 3], name='input_holder')
-        self.output_holder = tf.placeholder(tf.float32, shape=[None, 1280, 1920, 1], name='output_holder')
+        self.input_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width, 3], name='input_holder')
+        self.output_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width, 1], name='output_holder')
 
         conv1_1 = self.get_conv2d(self.input_holder, [3, 3, 3, 64], 'conv1_1')
         conv1_2 = self.get_conv2d(conv1_1, [3, 3, 64, 64], 'conv1_2')
