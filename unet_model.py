@@ -23,7 +23,7 @@ class Unet:
 
     def build_net(self):
         self.input_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width, 3], name='input_holder')
-        self.output_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width, 1], name='output_holder')
+        self.output_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width], name='output_holder')
 
         conv1_1 = self.get_conv2d(self.input_holder, [3, 3, 3, 64], 'conv1_1')
         conv1_2 = self.get_conv2d(conv1_1, [3, 3, 64, 64], 'conv1_2')
@@ -74,11 +74,15 @@ class Unet:
         up_conv1_2 = self.get_conv2d(up_conv1_1, [3, 3, 64, 64], 'up_conv1_2')
 
         output_logits = self.get_conv2d(up_conv1_2, [1, 1, 64, 1], 'output_map', activation='None')
+        output_logits = tf.reshape(output_logits, [-1, self.height, self.width])
         self.output_map = tf.nn.sigmoid(output_logits)
-
-        cross_entropy_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.output_holder, logits=output_logits)
-
-        self.loss = cross_entropy_loss
+        print(self.output_map.shape)
+        # cross_entropy_loss = tf.nn.softmax_cross_entropy_with_logits(labels=self.output_holder, logits=output_logits)
+        # print(cross_entropy_loss.shape)
+        # loss = tf.reduce_sum(cross_entropy_loss)
+        loss = tf.reduce_sum((self.output_map - self.output_holder) ** 2)
+        print(loss.shape)
+        self.loss = loss
 
     def train(self, sess, inputs, outputs, batch_size=5, epochs=100, learning_rate=0.0001):
         assert hasattr(self, 'loss')
@@ -95,6 +99,7 @@ class Unet:
                 _, batch_loss, output_map = sess.run([optimizer, self.loss, self.output_map],
                                                      feed_dict={self.input_holder: input_batch,
                                                                 self.output_holder: output_batch})
+                print(batch_loss)
                 sys.stdout.write("\repoch:%3d, idx: %4d, loss: %0.6f" % (epoch, idx, batch_loss))
                 total_loss += batch_loss
             print("\nepoch %3d, average loss: %.6f" % (epoch, total_loss / n_batches))

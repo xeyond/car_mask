@@ -8,7 +8,6 @@ def read_mask_img(filepath, image_size=(1280, 1920)):
     img = misc.imread(filepath, flatten=True).astype(np.float32)
     img_mat = misc.imresize(img, image_size)
     img_mat = img_mat / 255
-    img_mat = np.expand_dims(img_mat, axis=-1)
     return img_mat
 
 
@@ -30,7 +29,7 @@ def read_data(car_dir, mask_dir, n_images=0, image_size=(1280, 1920)):
         n_images = len(car_list)
 
     car_mat = np.zeros([n_images, image_size[0], image_size[1], 3], np.float32)
-    mask_mat = np.zeros([n_images, image_size[0], image_size[1], 1], np.float32)
+    mask_mat = np.zeros([n_images, image_size[0], image_size[1]], np.float32)
     for idx in range(n_images):
         car_file = car_list[idx]
         mask_file = mask_list[idx]
