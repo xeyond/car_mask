@@ -10,4 +10,4 @@ X, Y = read_data('/home/wangxiyang/dataset/kaggle/data/train', '/home/wangxiyang
 config = tf.ConfigProto()
 config.gpu_options.per_process_gpu_memory_fraction = 1.0
 with tf.Session() as sess:
-    unet.train(sess, X, Y, epochs=1000, batch_size=1, learning_rate=0.001)
+    unet.train(sess, X, Y, epochs=1000, batch_size=1, learning_rate=0.0001)
