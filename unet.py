@@ -4,14 +4,16 @@ from scipy import misc
 
 
 class Unet():
-    def __init__(self, input_shape=(1280, 1920)):
+    def __init__(self, input_shape=(1280, 1920), sess=None, filter_num=64):
         self.height, self.width = input_shape
+        self.sess = sess
+        self.filter_num = filter_num
+        self.is_restore = False
 
     def build_net(self):
         self.input_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width, 3], name='input_holder')
         self.output_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width], name='output_holder')
-
-        filter_num = 44
+        filter_num = self.filter_num
 
         # left layers
         conv1_1 = tf.layers.conv2d(self.input_holder, filters=filter_num, kernel_size=(3, 3), activation=tf.nn.relu,
@@ -103,28 +105,45 @@ class Unet():
             tf.nn.sigmoid_cross_entropy_with_logits(logits=mask_layer_logits, labels=self.output_holder))
         print(self.loss)
 
-    def predict(self, sess, inputs):
-        return sess.run(self.output_mask, feed_dict={self.input_holder: inputs})
+        self.saver = tf.train.Saver(max_to_keep=10)
 
-    def train(self, sess, inputs, outputs, batch_size=1, epochs=100, learning_rate=0.001):
+    def predict(self, inputs):
+        assert self.sess
+        return self.sess.run(self.output_mask, feed_dict={self.input_holder: inputs})
+
+    def load_weights(self, checkpoint_path):
+        assert self.sess
+        assert hasattr(self, 'saver')
+        self.saver.restore(self.sess, checkpoint_path)
+        self.is_restore = True
+
+    def save_weights(self, checkpoint_path):
+        assert self.sess
+        assert hasattr(self, 'saver')
+        self.saver.save(self.sess, checkpoint_path)
+
+    def train(self, inputs, outputs, batch_size=1, epochs=100, learning_rate=0.001):
         assert hasattr(self, 'loss')
-        saver = tf.train.Saver()
+        assert self.sess is not None
+
         optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(self.loss)
         # optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(self.loss)
-        sess.run(tf.global_variables_initializer())
+        if not self.is_restore:
+            self.sess.run(tf.global_variables_initializer())
         n_batches = inputs.shape[0] // batch_size
         for epoch in range(epochs):
             total_loss = 0.
             for idx in range(n_batches):
                 input_batch = inputs[idx * batch_size: (idx + 1) * batch_size]
                 output_batch = outputs[idx * batch_size: (idx + 1) * batch_size]
-                _, batch_loss, output_map = sess.run([optimizer, self.loss, self.output_mask],
-                                                     feed_dict={self.input_holder: input_batch,
-                                                                self.output_holder: output_batch})
+                _, batch_loss, output_map = self.sess.run([optimizer, self.loss, self.output_mask],
+                                                          feed_dict={self.input_holder: input_batch,
+                                                                     self.output_holder: output_batch})
                 sys.stdout.write("\repoch:%3d, idx: %4d, loss: %0.6f" % (epoch, idx, batch_loss))
                 total_loss += batch_loss
                 # misc.imsave('./test_result/train_%03d_epoch%03d.jpg' % (idx, epoch),output_map.reshape([self.height, self.width]))
             print("\nepoch %3d, average loss: %.6f" % (epoch, total_loss / n_batches))
-            if (epoch + 1) % 1 == 0:
-                saver.save(sess,
-                           './checkpoints/epoch%d_batch%d_h%d_w%d.ckpt' % (epoch, batch_size, self.height, self.width))
+            if (epoch + 1) % 10 == 0:
+                checkpoint_path = './checkpoints/epoch%d_batch%d_h%d_w%d_filter%d.ckpt' % (
+                epoch, batch_size, self.height, self.width, self.filter_num)
+                self.save_weights(checkpoint_path)
