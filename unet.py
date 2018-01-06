@@ -1,6 +1,7 @@
 import tensorflow as tf
 import sys
 from scipy import misc
+import numpy as np
 
 
 class Unet():
@@ -105,7 +106,17 @@ class Unet():
             tf.nn.sigmoid_cross_entropy_with_logits(logits=mask_layer_logits, labels=self.output_holder))
         print(self.loss)
 
+        self.dice_coef = self.dice_coef(mask_layer, self.output_holder)
+        print(self.dice_coef)
         self.saver = tf.train.Saver(max_to_keep=10)
+
+    def dice_coef(self, output_map, mask):
+        map_mask = tf.layers.flatten(output_map)
+        mask = tf.layers.flatten(mask)
+        map_mask = tf.cast(tf.greater(map_mask, 0.5), tf.float32)
+        dice_numerator = 2 * tf.reduce_sum(mask * map_mask, axis=1)
+        dice_denominator = tf.reduce_sum(mask, axis=1) + tf.reduce_sum(map_mask, axis=1)
+        return dice_numerator / dice_denominator
 
     def predict(self, inputs):
         assert self.sess
@@ -126,24 +137,26 @@ class Unet():
         assert hasattr(self, 'loss')
         assert self.sess is not None
 
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(self.loss)
-        # optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(self.loss)
+        # optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(self.loss)
+        optimizer = tf.train.AdamOptimizer(learning_rate, beta1=0.5).minimize(self.loss)
         if not self.is_restore:
             self.sess.run(tf.global_variables_initializer())
         n_batches = inputs.shape[0] // batch_size
         for epoch in range(epochs):
             total_loss = 0.
+            total_dice = 0
             for idx in range(n_batches):
                 input_batch = inputs[idx * batch_size: (idx + 1) * batch_size]
                 output_batch = outputs[idx * batch_size: (idx + 1) * batch_size]
-                _, batch_loss, output_map = self.sess.run([optimizer, self.loss, self.output_mask],
+                _, batch_loss, output_map, dice_coef = self.sess.run([optimizer, self.loss, self.output_mask, self.dice_coef],
                                                           feed_dict={self.input_holder: input_batch,
                                                                      self.output_holder: output_batch})
-                sys.stdout.write("\repoch:%3d, idx: %4d, loss: %0.6f" % (epoch, idx, batch_loss))
+                sys.stdout.write("\repoch:%3d, idx: %4d, loss: %0.6f, dice_coef: %.6f" % (epoch, idx, batch_loss, np.mean(dice_coef)))
                 total_loss += batch_loss
+                total_dice += np.mean(dice_coef)
                 # misc.imsave('./test_result/train_%03d_epoch%03d.jpg' % (idx, epoch),output_map.reshape([self.height, self.width]))
-            print("\nepoch %3d, average loss: %.6f" % (epoch, total_loss / n_batches))
+            print("\nepoch %3d, average loss: %.6f, average dice: %.6f" % (epoch, total_loss / n_batches, total_dice / n_batches))
             if (epoch + 1) % 10 == 0:
                 checkpoint_path = './checkpoints/epoch%d_batch%d_h%d_w%d_filter%d.ckpt' % (
-                epoch, batch_size, self.height, self.width, self.filter_num)
+                    epoch, batch_size, self.height, self.width, self.filter_num)
                 self.save_weights(checkpoint_path)

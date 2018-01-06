@@ -15,7 +15,7 @@ def build_parser():
     parser.add_argument('--mask_dir', type=str, default='/home/wangxiyang/dataset/kaggle/data/train_masks')
     parser.add_argument('--n_images', type=int, default=0)
 
-    parser.add_argument('--learning_rate', type=float, default=0.0005)
+    parser.add_argument('--learning_rate', type=float, default=0.001)
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--epochs', type=int, default=1000)
 
