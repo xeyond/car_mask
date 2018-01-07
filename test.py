@@ -15,7 +15,7 @@ def build_parser():
     parser.add_argument('--checkpoint_path', type=str, default=None)
     parser.add_argument('--filter_num', type=int, default=44)
     parser.add_argument('--test_dir', type=str, default='/home/wangxiyang/dataset/kaggle/data/small_test')
-    parser.add_argument('--result_dir', type=str, default='./test_result')
+    parser.add_argument('--result_dir', type=str, default='./small_test_result')
     parser.add_argument('--n_images', type=int, default=0)
 
     return parser
@@ -47,3 +47,7 @@ def main():
         res = unet.predict(np.expand_dims(img_mat, axis=0))
         res = res.reshape(image_size)
         misc.imsave(os.path.join(result_dir, img_names[i]), res)
+
+
+if __name__ == '__main__':
+    main()

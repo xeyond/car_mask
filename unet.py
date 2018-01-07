@@ -133,7 +133,7 @@ class Unet():
         assert hasattr(self, 'saver')
         self.saver.save(self.sess, checkpoint_path)
 
-    def train(self, inputs, outputs, batch_size=1, epochs=100, learning_rate=0.001):
+    def train(self, images, masks, val_images, val_masks, batch_size=1, epochs=100, learning_rate=0.001):
         assert hasattr(self, 'loss')
         assert self.sess is not None
 
@@ -141,22 +141,59 @@ class Unet():
         optimizer = tf.train.AdamOptimizer(learning_rate, beta1=0.5).minimize(self.loss)
         if not self.is_restore:
             self.sess.run(tf.global_variables_initializer())
-        n_batches = inputs.shape[0] // batch_size
+        n_batches = images.shape[0] // batch_size
+        t_batches = val_images.shape[0]
+        val_min_loss = 100.
+        val_max_dice = 0.
         for epoch in range(epochs):
+            # train
             total_loss = 0.
-            total_dice = 0
+            total_dice = 0.
             for idx in range(n_batches):
-                input_batch = inputs[idx * batch_size: (idx + 1) * batch_size]
-                output_batch = outputs[idx * batch_size: (idx + 1) * batch_size]
-                _, batch_loss, output_map, dice_coef = self.sess.run([optimizer, self.loss, self.output_mask, self.dice_coef],
-                                                          feed_dict={self.input_holder: input_batch,
-                                                                     self.output_holder: output_batch})
-                sys.stdout.write("\repoch:%3d, idx: %4d, loss: %0.6f, dice_coef: %.6f" % (epoch, idx, batch_loss, np.mean(dice_coef)))
+                input_batch = images[idx * batch_size: (idx + 1) * batch_size]
+                output_batch = masks[idx * batch_size: (idx + 1) * batch_size]
+                _, batch_loss, output_map, dice_coef = self.sess.run(
+                    [optimizer, self.loss, self.output_mask, self.dice_coef],
+                    feed_dict={self.input_holder: input_batch,
+                               self.output_holder: output_batch})
+                sys.stdout.write("\r-train epoch:%3d, idx: %4d, loss: %0.6f, dice_coef: %.6f" % (
+                    epoch, idx, batch_loss, np.mean(dice_coef)))
                 total_loss += batch_loss
                 total_dice += np.mean(dice_coef)
                 # misc.imsave('./test_result/train_%03d_epoch%03d.jpg' % (idx, epoch),output_map.reshape([self.height, self.width]))
-            print("\nepoch %3d, average loss: %.6f, average dice: %.6f" % (epoch, total_loss / n_batches, total_dice / n_batches))
-            if (epoch + 1) % 10 == 0:
-                checkpoint_path = './checkpoints/epoch%d_batch%d_h%d_w%d_filter%d.ckpt' % (
-                    epoch, batch_size, self.height, self.width, self.filter_num)
+            print("\n-train epoch:%3d, average loss: %.6f, average dice: %.6f" % (
+                epoch, total_loss / n_batches, total_dice / n_batches))
+
+            # validation
+            total_loss = 0.
+            total_dice = 0
+            t_batch_size = 1
+            for idx in range(t_batches):
+                input_batch = val_images[idx * t_batch_size: (idx + 1) * t_batch_size]
+                output_batch = val_masks[idx * t_batch_size: (idx + 1) * t_batch_size]
+                batch_loss, output_map, dice_coef = self.sess.run(
+                    [self.loss, self.output_mask, self.dice_coef],
+                    feed_dict={self.input_holder: input_batch,
+                               self.output_holder: output_batch})
+                sys.stdout.write("\r--test epoch:%3d, idx: %4d, loss: %0.6f, dice_coef: %.6f" % (
+                    epoch, idx, batch_loss, np.mean(dice_coef)))
+                total_loss += batch_loss
+                total_dice += np.mean(dice_coef)
+            avg_loss = total_loss / t_batches
+            avg_dice = total_dice / t_batches
+            print("\n--test epoch:%3d, average loss: %.6f, average dice: %.6f" % (
+                epoch, avg_loss, avg_dice))
+            model_need_save = False
+            if val_min_loss > avg_loss:
+                val_min_loss = avg_loss
+                model_need_save = True
+            if val_max_dice < avg_dice:
+                val_max_dice = avg_dice
+                model_need_save = True
+
+            if model_need_save:
+                checkpoint_path = './checkpoints/epoch%d_batch%d_h%d_w%d_filter%d_loss%04d_dice_%04d.ckpt' % (
+                    epoch, batch_size, self.height, self.width, self.filter_num, int(avg_loss * 10000),
+                    int(avg_dice * 10000))
                 self.save_weights(checkpoint_path)
+                print('saved weights:', checkpoint_path)

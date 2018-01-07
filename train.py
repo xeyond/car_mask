@@ -11,11 +11,14 @@ def build_parser():
     parser.add_argument('--img_height', type=int, default=640)
     parser.add_argument('--checkpoint_path', type=str, default=None)
     parser.add_argument('--filter_num', type=int, default=64)
-    parser.add_argument('--train_dir', type=str, default='/home/wangxiyang/dataset/kaggle/data/train')
-    parser.add_argument('--mask_dir', type=str, default='/home/wangxiyang/dataset/kaggle/data/train_masks')
+    parser.add_argument('--train_dir', type=str, default='/home/wangxiyang/dataset/kaggle/data/train_val/train')
+    parser.add_argument('--train_mask_dir', type=str,
+                        default='/home/wangxiyang/dataset/kaggle/data/train_val/train_mask')
+    parser.add_argument('--val_dir', type=str, default='/home/wangxiyang/dataset/kaggle/data/train_val/val')
+    parser.add_argument('--val_mask_dir', type=str, default='/home/wangxiyang/dataset/kaggle/data/train_val/val_mask')
     parser.add_argument('--n_images', type=int, default=0)
 
-    parser.add_argument('--learning_rate', type=float, default=0.001)
+    parser.add_argument('--learning_rate', type=float, default=0.0002)
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--epochs', type=int, default=1000)
 
@@ -35,9 +38,13 @@ def main():
         unet.load_weights(args.checkpoint_path)
 
     images, masks = read_data(args.train_dir,
-                              args.mask_dir,
+                              args.train_mask_dir,
                               n_images=args.n_images, image_size=image_size)
-    unet.train(images, masks, epochs=args.epochs, batch_size=args.batch_size, learning_rate=args.learning_rate)
+    val_images, val_masks = read_data(args.val_dir,
+                                      args.val_mask_dir,
+                                      n_images=args.n_images // 4, image_size=image_size)
+    unet.train(images=images, masks=masks, val_images=val_images, val_masks=val_masks, epochs=args.epochs,
+               batch_size=args.batch_size, learning_rate=args.learning_rate)
 
 
 if __name__ == '__main__':
