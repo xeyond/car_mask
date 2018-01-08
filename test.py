@@ -10,10 +10,16 @@ import argparse
 def build_parser():
     parser = argparse.ArgumentParser()
 
+    # model parameters
     parser.add_argument('--img_width', type=int, default=960)
     parser.add_argument('--img_height', type=int, default=640)
-    parser.add_argument('--checkpoint_path', type=str, default=None)
     parser.add_argument('--filter_num', type=int, default=44)
+    parser.add_argument('--batch_norm', action='store_true', default=False)
+
+    # checkpoint path
+    parser.add_argument('--checkpoint_path', type=str, default=None)
+
+    # test data and result dir
     parser.add_argument('--test_dir', type=str, default='/home/wangxiyang/dataset/kaggle/data/small_test')
     parser.add_argument('--mask_dir', type=str, default=None)
     parser.add_argument('--result_dir', type=str, default=None)
@@ -33,7 +39,7 @@ def main():
 
     image_size = [args.img_height, args.img_width]
     sess = tf.Session()
-    unet = Unet(input_shape=image_size, sess=sess, filter_num=args.filter_num)
+    unet = Unet(input_shape=image_size, sess=sess, filter_num=args.filter_num, batch_norm=args.batch_norm)
     unet.build_net(is_train=False)
     unet.load_weights(checkpoint_path)
     img_names = os.listdir(test_dir)

@@ -5,11 +5,12 @@ import numpy as np
 
 
 class Unet():
-    def __init__(self, input_shape=(1280, 1920), sess=None, filter_num=64):
+    def __init__(self, input_shape=(1280, 1920), sess=None, filter_num=64, batch_norm=True):
         self.height, self.width = input_shape
         self.sess = sess
         self.filter_num = filter_num
         self.is_restore = False
+        self.batch_norm = batch_norm
 
     def build_net(self, is_train=True):
         self.input_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width, 3], name='input_holder')
@@ -18,108 +19,130 @@ class Unet():
         filter_num = self.filter_num
         # is_train = self.is_train
         # is_train = False
-        # batch_norm: change the momentum from 0.99 to 0.9 and it works!!! but it really waste GPUs
+        # batch_norm: change the momentum from 0.99 to 0.9 and it works!!! but it really wastes GPUs
 
         # left layers
         conv1_1 = tf.layers.conv2d(self.input_holder, filters=filter_num, kernel_size=(3, 3), activation=tf.nn.relu,
                                    padding='same')
-        conv1_1 = tf.layers.batch_normalization(conv1_1, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            conv1_1 = tf.layers.batch_normalization(conv1_1, training=is_train, momentum=0.9)
         conv1_2 = tf.layers.conv2d(conv1_1, filters=filter_num, kernel_size=(3, 3), activation=tf.nn.relu,
                                    padding='same')
-        conv1_2 = tf.layers.batch_normalization(conv1_2, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            conv1_2 = tf.layers.batch_normalization(conv1_2, training=is_train, momentum=0.9)
         max_pooling1 = tf.layers.max_pooling2d(conv1_2, pool_size=(2, 2), strides=(2, 2))
 
         conv2_1 = tf.layers.conv2d(max_pooling1, filters=filter_num * 2, kernel_size=(3, 3), activation=tf.nn.relu,
                                    padding='same')
-        conv2_1 = tf.layers.batch_normalization(conv2_1, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            conv2_1 = tf.layers.batch_normalization(conv2_1, training=is_train, momentum=0.9)
         conv2_2 = tf.layers.conv2d(conv2_1, filters=filter_num * 2, kernel_size=(3, 3), activation=tf.nn.relu,
                                    padding='same')
-        conv2_2 = tf.layers.batch_normalization(conv2_2, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            conv2_2 = tf.layers.batch_normalization(conv2_2, training=is_train, momentum=0.9)
         max_pooling2 = tf.layers.max_pooling2d(conv2_2, pool_size=(2, 2), strides=(2, 2))
 
         conv3_1 = tf.layers.conv2d(max_pooling2, filters=filter_num * 4, kernel_size=(3, 3), activation=tf.nn.relu,
                                    padding='same')
-        conv3_1 = tf.layers.batch_normalization(conv3_1, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            conv3_1 = tf.layers.batch_normalization(conv3_1, training=is_train, momentum=0.9)
         conv3_2 = tf.layers.conv2d(conv3_1, filters=filter_num * 4, kernel_size=(3, 3), activation=tf.nn.relu,
                                    padding='same')
-        conv3_2 = tf.layers.batch_normalization(conv3_2, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            conv3_2 = tf.layers.batch_normalization(conv3_2, training=is_train, momentum=0.9)
         max_pooling3 = tf.layers.max_pooling2d(conv3_2, pool_size=(2, 2), strides=(2, 2))
 
         conv4_1 = tf.layers.conv2d(max_pooling3, filters=filter_num * 8, kernel_size=(3, 3), activation=tf.nn.relu,
                                    padding='same')
-        conv4_1 = tf.layers.batch_normalization(conv4_1, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            conv4_1 = tf.layers.batch_normalization(conv4_1, training=is_train, momentum=0.9)
         conv4_2 = tf.layers.conv2d(conv4_1, filters=filter_num * 8, kernel_size=(3, 3), activation=tf.nn.relu,
                                    padding='same')
-        conv4_2 = tf.layers.batch_normalization(conv4_2, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            conv4_2 = tf.layers.batch_normalization(conv4_2, training=is_train, momentum=0.9)
         max_pooling4 = tf.layers.max_pooling2d(conv4_2, pool_size=(2, 2), strides=(2, 2))
 
         # center layers
         center_layer = tf.layers.conv2d(max_pooling4, filters=filter_num * 16, kernel_size=(3, 3),
                                         activation=tf.nn.relu,
                                         padding='same')
-        center_layer = tf.layers.batch_normalization(center_layer, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            center_layer = tf.layers.batch_normalization(center_layer, training=is_train, momentum=0.9)
         center_layer = tf.layers.conv2d(center_layer, filters=filter_num * 16, kernel_size=(3, 3),
                                         activation=tf.nn.relu,
                                         padding='same')
-        center_layer = tf.layers.batch_normalization(center_layer, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            center_layer = tf.layers.batch_normalization(center_layer, training=is_train, momentum=0.9)
 
         # right layers
         up_conv4 = tf.layers.conv2d_transpose(center_layer, filters=filter_num * 8, kernel_size=(3, 3), strides=(2, 2),
                                               activation=tf.nn.relu,
                                               padding='same')
-        up_conv4 = tf.layers.batch_normalization(up_conv4, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv4 = tf.layers.batch_normalization(up_conv4, training=is_train, momentum=0.9)
         up_conv4 = tf.concat([conv4_2, up_conv4], axis=-1)
         up_conv4_1 = tf.layers.conv2d(up_conv4, filters=filter_num * 8, kernel_size=(3, 3),
                                       activation=tf.nn.relu,
                                       padding='same')
-        up_conv4_1 = tf.layers.batch_normalization(up_conv4_1, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv4_1 = tf.layers.batch_normalization(up_conv4_1, training=is_train, momentum=0.9)
         up_conv4_2 = tf.layers.conv2d(up_conv4_1, filters=filter_num * 8, kernel_size=(3, 3),
                                       activation=tf.nn.relu,
                                       padding='same')
-        up_conv4_2 = tf.layers.batch_normalization(up_conv4_2, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv4_2 = tf.layers.batch_normalization(up_conv4_2, training=is_train, momentum=0.9)
         up_conv3 = tf.layers.conv2d_transpose(up_conv4_2, filters=filter_num * 4, kernel_size=(3, 3), strides=(2, 2),
                                               activation=tf.nn.relu,
                                               padding='same')
-        up_conv3 = tf.layers.batch_normalization(up_conv3, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv3 = tf.layers.batch_normalization(up_conv3, training=is_train, momentum=0.9)
         up_conv3 = tf.concat([conv3_2, up_conv3], axis=-1)
         up_conv3_1 = tf.layers.conv2d(up_conv3, filters=filter_num * 4, kernel_size=(3, 3),
                                       activation=tf.nn.relu,
                                       padding='same')
-        up_conv3_1 = tf.layers.batch_normalization(up_conv3_1, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv3_1 = tf.layers.batch_normalization(up_conv3_1, training=is_train, momentum=0.9)
         up_conv3_2 = tf.layers.conv2d(up_conv3_1, filters=filter_num * 4, kernel_size=(3, 3),
                                       activation=tf.nn.relu,
                                       padding='same')
-        up_conv3_2 = tf.layers.batch_normalization(up_conv3_2, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv3_2 = tf.layers.batch_normalization(up_conv3_2, training=is_train, momentum=0.9)
 
         up_conv2 = tf.layers.conv2d_transpose(up_conv3_2, filters=filter_num * 2, kernel_size=(3, 3), strides=(2, 2),
                                               activation=tf.nn.relu,
                                               padding='same')
-        up_conv2 = tf.layers.batch_normalization(up_conv2, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv2 = tf.layers.batch_normalization(up_conv2, training=is_train, momentum=0.9)
         up_conv2 = tf.concat([conv2_2, up_conv2], axis=-1)
 
         up_conv2_1 = tf.layers.conv2d(up_conv2, filters=filter_num * 2, kernel_size=(3, 3),
                                       activation=tf.nn.relu,
                                       padding='same')
-        up_conv2_1 = tf.layers.batch_normalization(up_conv2_1, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv2_1 = tf.layers.batch_normalization(up_conv2_1, training=is_train, momentum=0.9)
 
         up_conv2_2 = tf.layers.conv2d(up_conv2_1, filters=filter_num * 2, kernel_size=(3, 3),
                                       activation=tf.nn.relu,
                                       padding='same')
-        up_conv2_2 = tf.layers.batch_normalization(up_conv2_2, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv2_2 = tf.layers.batch_normalization(up_conv2_2, training=is_train, momentum=0.9)
 
         up_conv1 = tf.layers.conv2d_transpose(up_conv2_2, filters=filter_num, kernel_size=(3, 3), strides=(2, 2),
                                               activation=tf.nn.relu,
                                               padding='same')
-        up_conv1 = tf.layers.batch_normalization(up_conv1, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv1 = tf.layers.batch_normalization(up_conv1, training=is_train, momentum=0.9)
         up_conv1 = tf.concat([conv1_2, up_conv1], axis=-1)
         up_conv1_1 = tf.layers.conv2d(up_conv1, filters=filter_num, kernel_size=(3, 3),
                                       activation=tf.nn.relu,
                                       padding='same')
-        up_conv1_1 = tf.layers.batch_normalization(up_conv1_1, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv1_1 = tf.layers.batch_normalization(up_conv1_1, training=is_train, momentum=0.9)
         up_conv1_2 = tf.layers.conv2d(up_conv1_1, filters=filter_num, kernel_size=(3, 3),
                                       activation=tf.nn.relu,
                                       padding='same')
-        up_conv1_2 = tf.layers.batch_normalization(up_conv1_2, training=is_train, momentum=0.9)
+        if self.batch_norm:
+            up_conv1_2 = tf.layers.batch_normalization(up_conv1_2, training=is_train, momentum=0.9)
 
         # output layer
         mask_layer_logits = tf.layers.conv2d(up_conv1_2, filters=1, kernel_size=(1, 1), activation=None,
@@ -132,14 +155,15 @@ class Unet():
             tf.nn.sigmoid_cross_entropy_with_logits(logits=mask_layer_logits, labels=self.output_holder))
         print(self.loss)
 
-        self.dice_coef = self.dice_coef(mask_layer, self.output_holder)
+        self.dice_coef = self.dice_coeffcient(mask_layer, self.output_holder)
         print(self.dice_coef)
         self.saver = tf.train.Saver(max_to_keep=10)
 
-    def dice_coef(self, output_map, mask):
+    def dice_coeffcient(self, output_map, mask, cast=True):
         map_mask = tf.layers.flatten(output_map)
         mask = tf.layers.flatten(mask)
-        map_mask = tf.cast(tf.greater(map_mask, 0.5), tf.float32)
+        if cast:
+            map_mask = tf.cast(tf.greater(map_mask, 0.5), tf.float32)
         dice_numerator = 2 * tf.reduce_sum(mask * map_mask, axis=1)
         dice_denominator = tf.reduce_sum(mask, axis=1) + tf.reduce_sum(map_mask, axis=1)
         return dice_numerator / dice_denominator
@@ -164,9 +188,12 @@ class Unet():
         assert hasattr(self, 'saver')
         self.saver.save(self.sess, checkpoint_path)
 
-    def train(self, images, masks, val_images, val_masks, batch_size=1, epochs=100, learning_rate=0.001):
+    def train(self, images, masks, val_images, val_masks, batch_size=1, epochs=100, learning_rate=0.001,
+              dice_loss=True , always_save=False):
         assert hasattr(self, 'loss')
         assert self.sess is not None
+        if dice_loss:
+            self.loss += 1 - tf.reduce_mean(self.dice_coeffcient(self.output_mask, self.output_holder, cast=False))
 
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
@@ -226,10 +253,9 @@ class Unet():
             if val_max_dice < avg_dice:
                 val_max_dice = avg_dice
                 model_need_save = True
-            always_save = True
             if model_need_save or always_save:
-                checkpoint_path = './checkpoints/epoch%d_batch%d_h%d_w%d_filter%d_loss%04d_dice_%04d_bn.ckpt' % (
+                checkpoint_path = './checkpoints/epoch%d_batch%d_h%d_w%d_filter%d_loss%04d_dice_%04d_bn%d.ckpt' % (
                     epoch, batch_size, self.height, self.width, self.filter_num, int(avg_loss * 10000),
-                    int(avg_dice * 10000))
+                    int(avg_dice * 10000), int(self.batch_norm))
                 self.save_weights(checkpoint_path)
                 print('saved weights:', checkpoint_path)
