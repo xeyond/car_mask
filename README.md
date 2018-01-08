@@ -1,5 +1,5 @@
 # car_mask
 code for Kaggle Competation: carvana-image-masking-challenge
-
-data set:
-链接：http://pan.baidu.com/s/1cNf0cA 密码：5lro
+## Details
+- Competation link: https://www.kaggle.com/c/carvana-image-masking-challenge
+- Dataset in BaiduCloud: http://pan.baidu.com/s/1cNf0cA (extraction code: 5lro) 
