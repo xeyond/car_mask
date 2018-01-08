@@ -18,7 +18,7 @@ def read_car_img(filepath, image_size=(1280, 1920)):
     return img_mat
 
 
-def read_data(car_dir, mask_dir, n_images=0, image_size=(1280, 1920)):
+def read_data(car_dir, mask_dir, n_images=0, image_size=(1280, 1920), shuffle=False):
     print('loading car data from', car_dir)
     print('loading mask data from', mask_dir)
     car_list = os.listdir(car_dir)
@@ -38,9 +38,11 @@ def read_data(car_dir, mask_dir, n_images=0, image_size=(1280, 1920)):
         mask_mat[idx] = read_mask_img(os.path.join(mask_dir, mask_file), image_size)
         sys.stdout.write('\r%2.1f%% completed...' % ((idx + 1.0) * 100 / n_images))
     print('')
-    perm = np.arange(n_images)
-    np.random.shuffle(perm)
-    return car_mat[perm], mask_mat[perm]
+    if shuffle:
+        perm = np.arange(n_images)
+        np.random.shuffle(perm)
+        return car_mat[perm], mask_mat[perm]
+    return car_mat, mask_mat
 
 
 def read_test_data(car_dir, n_images=0, image_size=(1280, 1920)):

@@ -159,6 +159,11 @@ class Unet():
         print(self.dice_coef)
         self.saver = tf.train.Saver(max_to_keep=10)
 
+    def shuffle_data(self, X, Y):
+        perm = np.arange(X.shape[0])
+        np.random.shuffle(perm)
+        return X[perm], Y[perm]
+
     def dice_coeffcient(self, output_map, mask, cast=True):
         map_mask = tf.layers.flatten(output_map)
         mask = tf.layers.flatten(mask)
@@ -189,7 +194,7 @@ class Unet():
         self.saver.save(self.sess, checkpoint_path)
 
     def train(self, images, masks, val_images, val_masks, batch_size=1, epochs=100, learning_rate=0.001,
-              dice_loss=True , always_save=False):
+              dice_loss=True, always_save=False):
         assert hasattr(self, 'loss')
         assert self.sess is not None
         if dice_loss:
@@ -210,6 +215,7 @@ class Unet():
             # train
             total_loss = 0.
             total_dice = 0.
+            images, masks = self.shuffle_data(images, masks)
             for idx in range(n_batches):
                 input_batch = images[idx * batch_size: (idx + 1) * batch_size]
                 output_batch = masks[idx * batch_size: (idx + 1) * batch_size]
@@ -238,6 +244,7 @@ class Unet():
                     feed_dict={self.input_holder: input_batch,
                                self.output_holder: output_batch,
                                self.is_train: False})
+                # setting is_train does not work because this is decided in the build_net function
                 sys.stdout.write("\r--test epoch:%3d, idx: %4d, loss: %0.6f, dice_coef: %.6f" % (
                     epoch, idx, batch_loss, np.mean(dice_coef)))
                 total_loss += batch_loss
