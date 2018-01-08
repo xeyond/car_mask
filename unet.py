@@ -11,12 +11,12 @@ class Unet():
         self.filter_num = filter_num
         self.is_restore = False
 
-    def build_net(self):
+    def build_net(self, is_train=True):
         self.input_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width, 3], name='input_holder')
         self.output_holder = tf.placeholder(tf.float32, shape=[None, self.height, self.width], name='output_holder')
         self.is_train = tf.placeholder(tf.bool, name='is_train')
         filter_num = self.filter_num
-        is_train = self.is_train
+        # is_train = self.is_train
         # is_train = False
         # batch_norm: change the momentum from 0.99 to 0.9 and it works!!! but it really waste GPUs
 
@@ -148,6 +148,11 @@ class Unet():
         assert self.sess
         return self.sess.run(self.output_mask, feed_dict={self.input_holder: inputs, self.is_train: False})
 
+    def predict_test(self, inputs, masks):
+        assert self.sess
+        return self.sess.run([self.output_mask, self.dice_coef],
+                             feed_dict={self.input_holder: inputs, self.output_holder: masks, self.is_train: False})
+
     def load_weights(self, checkpoint_path):
         assert self.sess
         assert hasattr(self, 'saver')
@@ -221,8 +226,8 @@ class Unet():
             if val_max_dice < avg_dice:
                 val_max_dice = avg_dice
                 model_need_save = True
-
-            if model_need_save:
+            always_save = True
+            if model_need_save or always_save:
                 checkpoint_path = './checkpoints/epoch%d_batch%d_h%d_w%d_filter%d_loss%04d_dice_%04d_bn.ckpt' % (
                     epoch, batch_size, self.height, self.width, self.filter_num, int(avg_loss * 10000),
                     int(avg_dice * 10000))

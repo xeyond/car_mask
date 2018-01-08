@@ -1,5 +1,5 @@
 from unet import Unet
-from utils import read_car_img
+from utils import read_car_img, read_mask_img
 import tensorflow as tf
 from scipy import misc
 import os
@@ -15,7 +15,8 @@ def build_parser():
     parser.add_argument('--checkpoint_path', type=str, default=None)
     parser.add_argument('--filter_num', type=int, default=44)
     parser.add_argument('--test_dir', type=str, default='/home/wangxiyang/dataset/kaggle/data/small_test')
-    parser.add_argument('--result_dir', type=str, default='./small_test_result')
+    parser.add_argument('--mask_dir', type=str, default=None)
+    parser.add_argument('--result_dir', type=str, default=None)
     parser.add_argument('--n_images', type=int, default=0)
 
     return parser
@@ -33,10 +34,16 @@ def main():
     image_size = [args.img_height, args.img_width]
     sess = tf.Session()
     unet = Unet(input_shape=image_size, sess=sess, filter_num=args.filter_num)
-    unet.build_net()
+    unet.build_net(is_train=False)
     unet.load_weights(checkpoint_path)
     img_names = os.listdir(test_dir)
     img_names.sort()
+    mask_names = None
+    total_dice = None
+    if args.mask_dir:
+        mask_names = os.listdir(args.mask_dir)
+        mask_names.sort()
+        total_dice = 0
 
     if n_imgs <= 0:
         n_imgs = len(img_names)
@@ -44,9 +51,22 @@ def main():
     for i in range(n_imgs):
         print('%s %d/%d' % (img_names[i], i, n_imgs))
         img_mat = read_car_img(os.path.join(test_dir, img_names[i]), image_size=image_size)
-        res = unet.predict(np.expand_dims(img_mat, axis=0))
-        res = res.reshape(image_size)
-        misc.imsave(os.path.join(result_dir, img_names[i]), res)
+        img_mat = np.expand_dims(img_mat, axis=0)
+        if mask_names:
+            mask_mat = read_mask_img(os.path.join(args.mask_dir, mask_names[i]), image_size=image_size)
+            mask_mat = np.expand_dims(mask_mat, axis=0)
+            res, dice = unet.predict_test(img_mat, mask_mat)
+            dice = np.mean(dice)
+            print('Dice coefficient:%.6f' % dice)
+            total_dice += dice
+        else:
+            res = unet.predict(np.expand_dims(img_mat, axis=0))
+
+        if args.result_dir:
+            res = res.reshape(image_size)
+            misc.imsave(os.path.join(result_dir, img_names[i]), res)
+    if total_dice:
+        print('Average Dice coefficient:%.6f' % (total_dice / n_imgs))
 
 
 if __name__ == '__main__':
