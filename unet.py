@@ -157,7 +157,7 @@ class Unet():
 
         self.dice_coef = self.dice_coeffcient(mask_layer, self.output_holder)
         print(self.dice_coef)
-        self.saver = tf.train.Saver(max_to_keep=10)
+        self.saver = tf.train.Saver(max_to_keep=30)
 
     def shuffle_data(self, X, Y):
         perm = np.arange(X.shape[0])
@@ -200,6 +200,14 @@ class Unet():
         if dice_loss:
             self.loss += 1 - tf.reduce_mean(self.dice_coeffcient(self.output_mask, self.output_holder, cast=False))
 
+        # Add summary
+        tf.summary.scalar('loss', self.loss)
+        tf.summary.scalar('dice_coef', tf.reduce_mean(self.dice_coef))
+        merged = tf.summary.merge_all()
+        images_summary = tf.summary.image('generate masks', tf.expand_dims(self.output_mask, axis=-1), max_outputs=8)
+        train_writer = tf.summary.FileWriter('./log_train', self.sess.graph)
+        test_writer = tf.summary.FileWriter('./log_test', self.sess.graph)
+
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
             # optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(self.loss)
@@ -211,16 +219,21 @@ class Unet():
         t_batches = val_images.shape[0]
         val_min_loss = 100.
         val_max_dice = 0.
+        static_train_sample = images[:batch_size]
+        static_test_sample = val_images[:batch_size]
+        static_test_mask = val_masks[:batch_size]
+        global_step = 0
         for epoch in range(epochs):
             # train
             total_loss = 0.
             total_dice = 0.
             images, masks = self.shuffle_data(images, masks)
             for idx in range(n_batches):
+                global_step += 1
                 input_batch = images[idx * batch_size: (idx + 1) * batch_size]
                 output_batch = masks[idx * batch_size: (idx + 1) * batch_size]
-                _, batch_loss, output_map, dice_coef = self.sess.run(
-                    [optimizer, self.loss, self.output_mask, self.dice_coef],
+                _, batch_loss, output_map, dice_coef, merged_summary = self.sess.run(
+                    [optimizer, self.loss, self.output_mask, self.dice_coef, merged],
                     feed_dict={self.input_holder: input_batch,
                                self.output_holder: output_batch,
                                self.is_train: True})
@@ -228,7 +241,19 @@ class Unet():
                     epoch, idx, batch_loss, np.mean(dice_coef)))
                 total_loss += batch_loss
                 total_dice += np.mean(dice_coef)
-                # misc.imsave('./test_result/train_%03d_epoch%03d.jpg' % (idx, epoch),output_map.reshape([self.height, self.width]))
+                train_writer.add_summary(merged_summary, global_step)
+                if global_step % 50 == 0:
+                    train_images_summary = self.sess.run(images_summary,
+                                                         feed_dict={self.input_holder: static_train_sample})
+                    test_images_summary, merged_summary = self.sess.run([images_summary, merged],
+                                                                        feed_dict={
+                                                                            self.input_holder: static_test_sample,
+                                                                            self.output_holder: static_test_mask})
+                    train_writer.add_summary(train_images_summary, global_step)
+                    test_writer.add_summary(test_images_summary, global_step)
+                    test_writer.add_summary(merged_summary, global_step)
+
+                    # misc.imsave('./test_result/train_%03d_epoch%03d.jpg' % (idx, epoch),output_map.reshape([self.height, self.width]))
             print("\n-train epoch:%3d, average loss: %.6f, average dice: %.6f" % (
                 epoch, total_loss / n_batches, total_dice / n_batches))
 
